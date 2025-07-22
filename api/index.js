@@ -22,7 +22,7 @@ app.post("/api/mensaje", async (req, res) => {
     const telegramUrl = `https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`;
     await axios.post(telegramUrl, {
       chat_id: process.env.CHAT_ID,
-      text: `📡 Mensaje del ESP8266:\n${mensaje}`,
+      text: `📡 Mensaje del ESP8266:\n\n${mensaje}`,
     });
 
     res.status(200).json({ status: "Mensaje enviado a Telegram" });

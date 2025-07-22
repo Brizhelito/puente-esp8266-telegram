@@ -21,7 +21,7 @@ WIFI_SSID = "FTT"
 WIFI_PASS = "20252025"
 
 # URL del puente en Vercel (reemplazar con tu URL)
-VERCEL_BRIDGE_URL = "http://your-vercel-app-name.vercel.app/api/mensaje"
+VERCEL_BRIDGE_URL = "http://puente-esp8266-telegram.vercel.app/api/mensaje"
 
 # ================= INICIALIZACIÓN OLED =================
 def init_oled():
