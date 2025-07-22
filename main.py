@@ -20,7 +20,7 @@ TEXTO_FIJO = " L/min"
 WIFI_SSID = "FTT"
 WIFI_PASS = "20252025"
 
-# URL del puente en Vercel (reemplazar con tu URL)
+# URL del puente en Vercel
 VERCEL_BRIDGE_URL = "http://puente-esp8266-telegram.vercel.app/api/mensaje"
 
 # ================= INICIALIZACIÓN OLED =================
@@ -84,21 +84,28 @@ def conectar_wifi():
 # ================= COMUNICACIÓN TELEGRAM =================
 def enviar_a_telegram(mensaje):
     try:
-        headers = {'Content-Type': 'application/json'}
-        data = ujson.dumps({"mensaje": mensaje})
-        response = urequests.post(VERCEL_BRIDGE_URL, data=data, headers=headers)
+        # Usar el endpoint GET con parámetros de query (más simple para el ESP8266)
+        url_con_params = f"{VERCEL_BRIDGE_URL}?mensaje={mensaje}"
+        print(f"Intentando enviar: {mensaje} a {url_con_params}")
+        
+        # Hacer solicitud GET en lugar de POST
+        response = urequests.get(url_con_params, timeout=5)
+        status = response.status_code
         response.close()
-        print(f"Mensaje enviado a Telegram: {mensaje}")
-        return True
+        
+        print(f"Mensaje enviado a Telegram: {mensaje}, Status: {status}")
+        return status == 200
     except Exception as e:
         print(f"Error enviando a Telegram: {e}")
         return False
 
 # ================= SISTEMA PRINCIPAL =================
 ultima_alerta_telegram = 0
+pendiente_envio = False
+mensaje_pendiente = ""
 
 def actualizar_sistema(timer):
-    global pulsos, ultima_alerta_telegram
+    global pulsos, ultima_alerta_telegram, pendiente_envio, mensaje_pendiente
     try:
         gc.collect()
         flujo = min(999.99, round((pulsos / PULSOS_POR_LITRO) * 60, 2))
@@ -111,16 +118,32 @@ def actualizar_sistema(timer):
             oled.text(flujo_texto, 48, LINEA_FLUJO)
             oled.text(TEXTO_FIJO, 90, LINEA_FLUJO)
             oled.text(f"Bomba: {'ON' if rele.value()==0 else 'OFF'}", 0, LINEA_BOMBA)
+            # Mostrar estado de red si hay mensajes pendientes
+            if pendiente_envio:
+                oled.text("Enviando...", 0, LINEA_BOMBA + 10)
             oled.show()
-
-        # Alerta por flujo bajo a Telegram (cada 5 minutos)
-        if 0 < flujo < 1.0 and time.ticks_diff(time.ticks_ms(), ultima_alerta_telegram) > 300000:
-            mensaje_alerta = f"ALERTA: Flujo bajo detectado: {flujo} L/min"
-            if enviar_a_telegram(mensaje_alerta):
+        
+        # Procesar envío pendiente primero
+        if pendiente_envio and mensaje_pendiente:
+            if enviar_a_telegram(mensaje_pendiente):
+                print("Mensaje pendiente enviado correctamente")
+                pendiente_envio = False
+                mensaje_pendiente = ""
                 ultima_alerta_telegram = time.ticks_ms()
+            else:
+                print("Fallo al enviar mensaje pendiente, reintentando...")
+                # No cambiar pendiente_envio, se reintentará
+
+        # Sólo evaluar nueva alerta si no hay envío pendiente
+        elif not pendiente_envio and 0 < flujo < 1.0 and time.ticks_diff(time.ticks_ms(), ultima_alerta_telegram) > 300000:
+            mensaje_alerta = f"ALERTA: Flujo bajo detectado: {flujo} L/min"
+            pendiente_envio = True
+            mensaje_pendiente = mensaje_alerta
+            print("Mensaje marcado para envío en próximo ciclo")
 
     except Exception as e:
         print(f"Error en actualización: {e}")
+        pendiente_envio = False  # Reiniciar en caso de error
 
 # ================= INICIO =================
 if conectar_wifi():
