@@ -3,13 +3,12 @@ const express = require("express");
 const axios = require("axios");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
 // Middleware para parsear JSON
 app.use(express.json());
 
 // Ruta para recibir mensajes del ESP8266
-app.post("/mensaje", async (req, res) => {
+// Vercel redirigirá las solicitudes de /api/mensaje aquí
+app.post("/api/mensaje", async (req, res) => {
   const { mensaje } = req.body;
 
   if (!mensaje) {
@@ -26,7 +25,7 @@ app.post("/mensaje", async (req, res) => {
       text: `📡 Mensaje del ESP8266:\n${mensaje}`,
     });
 
-    res.json({ status: "Mensaje enviado a Telegram" });
+    res.status(200).json({ status: "Mensaje enviado a Telegram" });
   } catch (error) {
     console.error("Error al enviar a Telegram:", error.message);
     res.status(500).json({
@@ -36,10 +35,5 @@ app.post("/mensaje", async (req, res) => {
   }
 });
 
-// Iniciar el servidor
-app.listen(PORT, () => {
-  console.log(`Puente Telegram escuchando en http://localhost:${PORT}`);
-  console.log(
-    `Ruta para enviar mensajes: POST http://localhost:${PORT}/mensaje`
-  );
-});
+// Exportar la app para Vercel
+module.exports = app;
